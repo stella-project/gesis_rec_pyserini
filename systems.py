@@ -58,7 +58,7 @@ class Recommender(object):
                 writer.write(doc)
 
         try:
-            os.mkdir('./indexes/')
+            os.mkdir('./index/')
         except OSError as error:
             print(error)
 
@@ -66,13 +66,13 @@ class Recommender(object):
                 "-generator", "DefaultLuceneDocumentGenerator",
                 "-threads", "1",
                 "-input", "./convert",
-                "-index", "./indexes/gesis",
+                "-index", "./index/",
                 "-storePositions",
                 "-storeDocvectors",
                 "-storeRaw"]
 
         JIndexCollection.main(args)
-        self.searcher = SimpleSearcher('indexes/gesis')
+        self.searcher = SimpleSearcher('./index/')
 
         with jsonlines.open('./data/gesis-search/documents/publication.jsonl') as reader:
             for obj in reader:
