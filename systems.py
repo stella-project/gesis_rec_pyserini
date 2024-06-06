@@ -3,6 +3,9 @@ from pyserini.index.__main__ import JIndexCollection
 from pyserini.search import SimpleSearcher
 import jsonlines
 import shutil
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 CHUNKSIZE = 100000000
 
@@ -16,11 +19,11 @@ class Ranker(object):
         itemlist = []
 
         return {
-            'page': page,
-            'rpp': rpp,
-            'query': query,
-            'itemlist': itemlist,
-            'num_found': len(itemlist)
+            "page": page,
+            "rpp": rpp,
+            "query": query,
+            "itemlist": itemlist,
+            "num_found": len(itemlist),
         }
 
 
@@ -40,7 +43,7 @@ class Recommender(object):
         try:
             os.mkdir(dir)
         except OSError as error:
-            print(error)
+            logging.error(error)
 
     def _make_chuncks(self, dir):
         """Split all jsonl files from a directory to digestable chunks and save them as jsonl files.
@@ -50,13 +53,18 @@ class Recommender(object):
         """
         for file in os.listdir(dir):
             if file.endswith(".jsonl"):
-                with open(os.path.join(dir, file), 'r') as f:
+                with open(os.path.join(dir, file), "r") as f:
                     cnt = 0
                     while True:
                         lines = f.readlines(CHUNKSIZE)
                         if not lines:
                             break
-                        with open(''.join(['./index/chunks/', file[:-6], '_', str(cnt), '.jsonl']), 'w') as _chunk_out:
+                        with open(
+                            "".join(
+                                ["/index/chunks/", file[:-6], "_", str(cnt), ".jsonl"]
+                            ),
+                            "w",
+                        ) as _chunk_out:
                             for line in lines:
                                 _chunk_out.write(line)
                         cnt += 1
@@ -66,18 +74,20 @@ class Recommender(object):
         Args:
             file: Input chunk to process.
         """
-        with jsonlines.open(os.path.join('./index/convert/', file), mode='w') as writer:
-            with jsonlines.open(os.path.join('./index/chunks/', file)) as reader:
+        with jsonlines.open(os.path.join("/index/convert/", file), mode="w") as writer:
+            with jsonlines.open(os.path.join("/index/chunks/", file)) as reader:
                 for obj in reader:
-                    title = obj.get('title') or ''
+                    title = obj.get("title") or ""
                     title = title[0] if type(title) is list else title
 
-                    abstract = obj.get('abstract') or ''
+                    abstract = obj.get("abstract") or ""
                     abstract = abstract[0] if type(abstract) is list else abstract
 
                     try:
-                        doc = {'id': obj.get('id'),
-                               'contents': ' '.join([title, abstract])}
+                        doc = {
+                            "id": obj.get("id"),
+                            "contents": " ".join([title, abstract]),
+                        }
                         writer.write(doc)
                     except Exception as e:
                         print(e)
@@ -91,38 +101,48 @@ class Recommender(object):
         Returns:
             pyserini searcher: searcher for the created index
         """
-        self._mkdir(os.path.join('./index/', index))
-        self._mkdir('./index/convert/')
-        self._mkdir('./index/chunks/')
-        self._make_chuncks(os.path.join("./data/gesis-search/", index))
+        logging.info("Creating index for " + index)
+        self._mkdir("/index/")
+        self._mkdir(os.path.join("/index/", index))
+        self._mkdir("/index/convert/")
+        self._mkdir("/index/chunks/")
+        logging.info("created directories")
+        logging.info(os.listdir("/index/"))
+        self._make_chuncks(os.path.join("/data/gesis-search/", index))
 
-        for i in os.listdir("./index/chunks/"):
+        for i in os.listdir("/index/chunks/"):
             self._convert_chunks(i)
-        shutil.rmtree('./index/chunks')
+        shutil.rmtree("/index/chunks")
 
-        args = ["-collection", "JsonCollection",
-                "-generator", "DefaultLuceneDocumentGenerator",
-                "-threads", "1",
-                "-input", "./index/convert",
-                "-index", "./index/" + index,
-                "-storePositions",
-                "-storeDocvectors",
-                "-storeRaw"]
+        args = [
+            "-collection",
+            "JsonCollection",
+            "-generator",
+            "DefaultLuceneDocumentGenerator",
+            "-threads",
+            "1",
+            "-input",
+            "/index/convert",
+            "-index",
+            "/index/" + index,
+            "-storePositions",
+            "-storeDocvectors",
+            "-storeRaw",
+        ]
 
         JIndexCollection.main(args)
-        shutil.rmtree('./index/convert/')
-        return SimpleSearcher('./index/' + index)
+        shutil.rmtree("/index/convert/")
+
+        return SimpleSearcher("/index/" + index)
 
     def index(self):
-        """Create all indexes for all searcher
-
-        """
+        """Create all indexes for all searcher"""
         self.searcher_datasets = self._create_index("datasets")
         self.searcher_publication = self._create_index("documents")
 
-        with jsonlines.open('./data/gesis-search/documents/publication.jsonl') as reader:
+        with jsonlines.open("/data/gesis-search/documents/publication.jsonl") as reader:
             for obj in reader:
-                self.title_lookup[obj.get('id')] = obj.get('title')
+                self.title_lookup[obj.get("id")] = obj.get("title")
 
     def recommend_datasets(self, item_id, page, rpp):
         """Create dataset recommendations for a given ID.
@@ -143,14 +163,14 @@ class Recommender(object):
         if doc_title is not None:
             hits = self.searcher_datasets.search(doc_title)
 
-            itemlist = [hit.docid for hit in hits[page * rpp:(page + 1) * rpp]]
+            itemlist = [hit.docid for hit in hits[page * rpp : (page + 1) * rpp]]
 
         return {
-            'page': page,
-            'rpp': rpp,
-            'item_id': item_id,
-            'itemlist': itemlist,
-            'num_found': len(itemlist)
+            "page": page,
+            "rpp": rpp,
+            "item_id": item_id,
+            "itemlist": itemlist,
+            "num_found": len(itemlist),
         }
 
     def recommend_publications(self, item_id, page, rpp):
@@ -170,12 +190,12 @@ class Recommender(object):
         if doc_title is not None:
             hits = self.searcher_publication.search(doc_title)
 
-            itemlist = [hit.docid for hit in hits[page * rpp:(page + 1) * rpp]]
+            itemlist = [hit.docid for hit in hits[page * rpp : (page + 1) * rpp]]
 
         return {
-            'page': page,
-            'rpp': rpp,
-            'item_id': item_id,
-            'itemlist': itemlist,
-            'num_found': len(itemlist)
+            "page": page,
+            "rpp": rpp,
+            "item_id": item_id,
+            "itemlist": itemlist,
+            "num_found": len(itemlist),
         }
