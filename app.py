@@ -51,5 +51,22 @@ def rec_pub():
     return jsonify(response)
 
 
+@app.route('/recommendation', methods=["GET"])
+def rec_combined():
+    item_id = request.args.get('item_id', None)
+    page = request.args.get('page', default=0, type=int)
+    rpp = request.args.get('rpp', default=20, type=int)
+
+    datasets = recommender.recommend_datasets(item_id, page, rpp)
+    publications = recommender.recommend_publications(item_id, page, rpp)
+
+    response = {
+        "itemlist": datasets["itemlist"] + publications["itemlist"],
+        "num_found": datasets["num_found"] + publications["num_found"]
+    }
+    print(response)
+    return jsonify(response)
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
