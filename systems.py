@@ -1,9 +1,10 @@
+import logging
 import os
+import shutil
+
+import jsonlines
 from pyserini.index.__main__ import JIndexCollection
 from pyserini.search import SimpleSearcher
-import jsonlines
-import shutil
-import logging
 
 logging.basicConfig(level=logging.INFO)
 
@@ -30,7 +31,6 @@ class Ranker(object):
 class Recommender(object):
 
     def __init__(self):
-        self.searcher_datasets = None
         self.searcher_publication = None
         self.title_lookup = {}
 
@@ -137,43 +137,13 @@ class Recommender(object):
 
     def index(self):
         """Create all indexes for all searcher"""
-        self.searcher_datasets = self._create_index("datasets")
         self.searcher_publication = self._create_index("documents")
 
         with jsonlines.open("/data/gesis-search/documents/publication.jsonl") as reader:
             for obj in reader:
                 self.title_lookup[obj.get("id")] = obj.get("title")
 
-    def recommend_datasets(self, item_id, page, rpp):
-        """Create dataset recommendations for a given ID.
-
-        Args:
-            item_id: Id to create recommendations for
-            page: Page number recommendations should be returned for
-            rpp: Number recommendations for this page
-
-        Returns:
-            dict: Result dictionary of recommended datasets
-        """
-
-        itemlist = []
-
-        doc_title = self.title_lookup.get(item_id)
-
-        if doc_title is not None:
-            hits = self.searcher_datasets.search(doc_title)
-
-            itemlist = [hit.docid for hit in hits[page * rpp : (page + 1) * rpp]]
-
-        return {
-            "page": page,
-            "rpp": rpp,
-            "item_id": item_id,
-            "itemlist": itemlist,
-            "num_found": len(itemlist),
-        }
-
-    def recommend_publications(self, item_id, page, rpp):
+    def recommend(self, item_id, page, rpp):
         """Create publication recommendations for a given ID.
 
         Args:
