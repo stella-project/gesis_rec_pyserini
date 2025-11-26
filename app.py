@@ -35,7 +35,7 @@ def ranking():
 
 @app.route("/recommendation", methods=["GET"])
 def recommendation():
-    item_id = request.args.get("item_id", None)
+    item_id = request.args.get("itemid", None)
     page = request.args.get("page", default=0, type=int)
     rpp = request.args.get("rpp", default=20, type=int)
 
